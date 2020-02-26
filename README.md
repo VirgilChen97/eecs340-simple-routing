@@ -43,7 +43,7 @@ For EECS-340, the murphy.wot.eecs.northwestern.edu machine does have Python 3 in
      4. [Time] CHANGE_LINK [ID1] [ID2] [LATENCY], # will create a new node if does not exist
         e.g., 10 CHANGE_LINK 1 2 10
      5. [Time] DELETE_LINK [ID1] [ID2], # will send latency -1 to node1 and node 2
-        e.g., 10 DELETE_LINK 1 2 10
+        e.g., 10 DELETE_LINK 1 2
 
      6. [Time] PRINT [Text]
         e.g. 10 PRINT "Debug information"
@@ -51,7 +51,7 @@ For EECS-340, the murphy.wot.eecs.northwestern.edu machine does have Python 3 in
         e.g. 10 DRAW_TOPOLOGY
      8. [Time] DRAW_PATH [ID1] [ID2]  # Draw shortest path from ID1 to ID2, Green path: correct path, Red path: your path
         e.g. 1000 DRAW_PATH 1 2
-     9. [Time] DRAW_TREE [ID] # Draw minimum spanning tree, take ID as root
+     9. [Time] DRAW_TREE [ID] # Draw shortest path tree, take ID as root
         e.g. 1000 DRAW_TREE 1
 
      10. [Time] DUMP_NODE [ID]
