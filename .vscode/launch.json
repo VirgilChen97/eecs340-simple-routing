@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "C:\\Users\\ChenJ\\Desktop\\routesim2\\sim.py",
             "console": "integratedTerminal",
-            "args": ["LINK_STATE", "demo.event"]
+            "args": ["LINK_STATE", "test1.event"]
         }
     ]
 }

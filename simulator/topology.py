@@ -142,114 +142,119 @@ class Topology:
     def get_correct_path(self, source, destination):
         try:
             shortest_path = nx.algorithms.shortest_path(self.__g, source=source, target=destination, weight='latency')
+            shortest_length = nx.algorithms.shortest_path_length(self.__g, source=source, target=destination, weight='latency')
         except:
             self.logging.warning("No path from %d to %d, please correct event/topo file" % (source, destination))
-            return None
+            return None, float("inf")
+        return shortest_path, shortest_length
 
-        correct_path = []
-        for i in range(len(shortest_path) - 1):
-            correct_path.append((shortest_path[i], shortest_path[i + 1]))
-        return correct_path
 
-    def get_tree_correct_path(self, source):
+    def get_correct_path_dict(self, source):
         try:
-            shortest_tree = nx.algorithms.shortest_path(self.__g, source=source, weight='latency')
+            shortest_paths = nx.algorithms.shortest_path(self.__g, source=source, weight='latency')
+            shortest_lengths = nx.algorithms.shortest_path_length(self.__g, source=source, weight='latency')
         except:
             self.logging.warning("No Tree from %d, please correct event/topo file" % source)
-            return None
+            return None, float("inf")
+        shortest_path_dict = {(source, k):v for (k,v) in shortest_paths.items() if source != k}
+        shortest_length_dict = {(source, k):v for (k,v) in shortest_lengths.items() if source != k}
+        return shortest_path_dict, shortest_length_dict
 
-        correct_path_set = set()
-        for s in shortest_tree.keys():
-            if s == source:
-                continue
-            for i in range(len(shortest_tree[s]) -1):
-                correct_path_set.add((shortest_tree[s][i], shortest_tree[s][i + 1]))
-
-        destination_list = list(shortest_tree.keys())
-        destination_list.remove(source)
-
-        return list(correct_path_set), destination_list
 
     def get_user_path(self, source, destination):
         path = [source]
+        length = 0
 
         while destination not in path:
             next = Topology.Nodes[path[-1]].get_next_hop(destination)
             if next == None:
                 self.logging.warning("Your algorithm cannot find a path from %d to %d. Output: %s." % (source, destination, str(path)))
-                return None
+                return [], float("inf")
             elif next == -1 or next not in self.__g.nodes or next in path:
                 path.append(next)
                 self.logging.warning(
                     "Your algorithm cannot find a path from %d to %d. Output: %s." % (source, destination, str(path)))
-                return None
+                return [], float("inf")
+            elif (path[-1], next) not in self.__g.edges:
+                self.logging.warning("Link from %d to %d does not exist, you cannot use it" % (path[-1], next))
+                path.append(next)
+                return [], float("inf")
+            length += self.__g[path[-1]][next]['latency']
             path.append(next)
+        return path, length
 
-        user_path = []
-        for i in range(len(path) - 1):
-            if (path[i], path[i + 1]) not in self.__g.edges:
-                self.logging.warning("Link from %d to %d does not exists, you cannot use it" % (path[i], path[i + 1]))
-                return None
-            user_path.append((path[i], path[i + 1]))
-        return  user_path
 
-    def get_tree_user_path(self, source, destination_list):
-        user_path_set = set()
-        solved_destination_set = set()
-        for d in destination_list:
-            if d in solved_destination_set:
-                continue
-            path_for_d = self.get_user_path(source, d)
-            if path_for_d == None or path_for_d == []:
-                self.logging.warning("Your algorithm cannot find a path from %d to %d." % (source, d))
-            else:
-                for p in path_for_d:
-                    user_path_set.add(p)
-                    solved_destination_set.add(p[1])
+    def get_user_path_dict(self, source):
+        path_dict, length_dict = {}, {}
+        for d in self.__g.nodes:
+            if d == source: continue
+            path_dict[(source, d)], length_dict[(source, d)] = self.get_user_path(source, d)
+        return path_dict, length_dict
 
-        return list(user_path_set)
+
 
     def draw_path(self, source, destination):
         if (source not in self.__g.nodes) or  (destination not in self.__g.nodes) or (source == destination):
             self.logging.warning("Parameters in DRAW_PATH are illegal.")
             return
 
-        correct_path = self.get_correct_path(source, destination)
+        correct_path, correct_length = self.get_correct_path(source, destination)
         if correct_path == None:
             return
 
-        user_path = self.get_user_path(source, destination)
+        user_path, user_length = self.get_user_path(source, destination)
+
+        print("correct_path: (length=%s) %s" % (correct_length, correct_path))
+        print("student_path: (length=%s) %s" % (user_length, user_path))
+        print("student's solution is %s!\n" % ("correct" if correct_length == user_length else "incorrect"))
 
         red_nodes = [source, destination]
         blue_nodes = list(self.__g.nodes)
         for node in red_nodes:
             blue_nodes.remove(node)
 
-        self.draw_in_networkx(red_nodes, blue_nodes, correct_path, user_path)
+        correct_edges = set([(correct_path[i], correct_path[i+1]) for i in range(len(correct_path)-1)])
+        user_edges = set([(user_path[i], user_path[i+1]) for i in range(len(user_path)-1)])
+
+        self.draw_in_networkx(red_nodes, blue_nodes, correct_edges, user_edges)
+
+
 
     def draw_tree(self, source):
         if source not in self.__g.nodes:
             self.logging.warning("Parameter in DRAW_TREE is illegal.")
             return
 
-        correct_path, destination_list = self.get_tree_correct_path(source)
-        if correct_path == None or correct_path == []:
+        correct_path_dict, correct_length_dict = self.get_correct_path_dict(source)
+        if correct_path_dict == None:
             return
 
-        user_path = self.get_tree_user_path(source, destination_list)
+        user_path_dict, user_length_dict = self.get_user_path_dict(source)
+
+        print("checking all paths starting from Node #%d..." % source)
+        for (k,v) in correct_length_dict.items():
+            if v == user_length_dict[k]: continue
+            print("from %s to %s:" % (k[0], k[1]))
+            print("correct_path: (length=%s) %s" % (correct_length_dict[k], correct_path_dict[k]))
+            print("student_path: (length=%s) %s" % (user_length_dict[k], user_path_dict[k]))
+        print("student's solution is %s!\n" % ("correct" if correct_length_dict == user_length_dict else "incorrect"))
+
         red_nodes = [source]
         blue_nodes = list(self.__g.nodes)
         blue_nodes.remove(source)
 
-        self.draw_in_networkx(red_nodes, blue_nodes, correct_path, user_path)
+        correct_edges, user_edges = set(), set()
+        for (k,v) in correct_path_dict.items():
+            correct_edges |= set([(v[i], v[i+1]) for i in range(len(v)-1)])
+        for (k,v) in user_path_dict.items():
+            user_edges |= set([(v[i], v[i+1]) for i in range(len(v)-1)])
+
+        self.draw_in_networkx(red_nodes, blue_nodes, correct_edges, user_edges)
 
     def draw_in_networkx(self, red_nodes, blue_nodes, correct_path, user_path):
         if self.position == None:
             self.position = nx.spring_layout(self.__g)
             
-        print("correct_path: " + str(correct_path))
-        print("student_path: " + str(user_path))
-
         nx.draw_networkx_nodes(self.__g, self.position, nodelist=blue_nodes, node_size=600, node_color='b', alpha=0.7)
         nx.draw_networkx_nodes(self.__g, self.position, nodelist=red_nodes, node_size=700, node_color='r', alpha=0.6)
         nx.draw_networkx_labels(self.__g, self.position, labels=self.node_labels(), font_size=14, font_color='w')

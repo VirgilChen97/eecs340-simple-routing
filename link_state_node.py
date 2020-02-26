@@ -11,7 +11,12 @@ class Link_State_Node(Node):
 
     # Return a string
     def __str__(self):
-        return str(self.graph)
+        arr = sorted(self.graph.items(), key = lambda item:item[0])
+        res = {}
+        for i in range(len(arr)):
+            res[arr[i][0]] = sorted(arr[i][1].items(), key = lambda item:item[0])
+
+        return str(self.id) + ":" + str(res) + "\nseq:" + str(self.latestSeqList)
 
     # Fill in this function
     def link_has_been_updated(self, neighbor, latency):
@@ -31,8 +36,9 @@ class Link_State_Node(Node):
 
         link = frozenset([self.id, neighbor])
         if link not in self.latestSeqList:
-            self.latestSeqList[link] = 0
+            self.latestSeqList[link] = -1
 
+        self.latestSeqList[link] += 1
         # send update of the link to old neighbors
         for old_neighbor in self.graph[self.id].keys():
             if old_neighbor != neighbor:
@@ -56,14 +62,16 @@ class Link_State_Node(Node):
                 })
         self.send_to_neighbor(neighbor, json.dumps({"data":graph_dump}))
 
-        self.latestSeqList[link] += 1
 
     # Fill in this function
     def process_incoming_routing_message(self, m):
-        # print("[message] " + m)
         data = json.loads(m)
        
         for info in data["data"]:
+            # discard message about the node itself
+            if self.id == info["link"][0] or self.id == info["link"][1]:
+                continue
+
             link = frozenset([info["link"][0], info["link"][1]])
             # Received message is newest one
             if link not in self.latestSeqList or info["seq"] > self.latestSeqList[link]: 
