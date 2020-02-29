@@ -118,37 +118,41 @@ class Link_State_Node(Node):
 
     # Return a neighbor, -1 if no path to destination
     def get_next_hop(self, destination):
-        # ============Initialization===============
-        # Current shortest distance
-        d = {}
-        # Current previous hop
-        prev = {} 
-        # 0 latency to self
-        d[self.id] = 0
-        # Initialize latency to neighbor
-        for neighbor, latency in self.graph[self.id].items():
-            d[neighbor] = latency
-            prev[neighbor] = self.id
-        # Node that already found shortest path
-        S = set()
-        # Node haven't found shortest path
-        Q = set(self.graph.keys())
+        try:
+            # ============Initialization===============
+            # Current shortest distance
+            d = {}
+            # Current previous hop
+            prev = {} 
+            # 0 latency to self
+            d[self.id] = 0
+            # Initialize latency to neighbor
+            for neighbor, latency in self.graph[self.id].items():
+                d[neighbor] = latency
+                prev[neighbor] = self.id
+            # Node that already found shortest path
+            S = set()
+            # Node haven't found shortest path
+            Q = set([key for key in self.graph.keys() if len(self.graph[key]) > 0])
 
-        while len(Q) != 0:
-            d_exclude_S = {key: value for key, value in d.items() if key not in S}
-            u = min(d_exclude_S, key=d_exclude_S.get)
-            S.add(u)
-            Q.remove(u)
-            for neighbor, latency in self.graph[u].items():
-                if neighbor not in d or d[neighbor] >= d[u] + latency:
-                    d[neighbor] = d[u] + latency
-                    prev[neighbor] = u
+            while len(Q) != 0:
+                d_exclude_S = {key: value for key, value in d.items() if key not in S}
+                u = min(d_exclude_S, key=d_exclude_S.get)
+                S.add(u)
+                Q.remove(u)
+                for neighbor, latency in self.graph[u].items():
+                    if neighbor not in d or d[neighbor] >= d[u] + latency:
+                        d[neighbor] = d[u] + latency
+                        prev[neighbor] = u
 
-        if destination not in prev:
-            return -1
-        else:
-            next_hop = destination
-            while prev[next_hop] != self.id:
-                next_hop = prev[next_hop]
+            if destination not in prev:
+                return -1
+            else:
+                next_hop = destination
+                while prev[next_hop] != self.id:
+                    next_hop = prev[next_hop]
 
-            return next_hop
+                return next_hop
+        except Exception as e:
+            print("[error] " + str(self.id) + str(e))
+            exit(1)

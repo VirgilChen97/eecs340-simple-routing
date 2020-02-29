@@ -4,13 +4,14 @@
     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "网络模拟",
             "type": "python",
             "request": "launch",
             "program": "C:\\Users\\ChenJ\\Desktop\\routesim2\\sim.py",
             "console": "integratedTerminal",
-            "args": ["LINK_STATE", "test1.event"]
+            "args": ["LINK_STATE", "tests/case_6.event"]
         }
     ]
 }
