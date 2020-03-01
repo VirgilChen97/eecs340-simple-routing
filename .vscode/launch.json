@@ -11,7 +11,7 @@
             "request": "launch",
             "program": "C:\\Users\\ChenJ\\Desktop\\routesim2\\sim.py",
             "console": "integratedTerminal",
-            "args": ["LINK_STATE", "tests/case_6.event"]
+            "args": ["DISTANCE_VECTOR", "tests/demo.event"]
         }
     ]
 }
