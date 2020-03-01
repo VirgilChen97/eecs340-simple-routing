@@ -5,7 +5,7 @@ import json
 class Distance_Vector_Node(Node):
     def __init__(self, id):
         super().__init__(id)
-        self.dv = {}
+        self.dv = {str(self.id): {'path': [], 'latency': 0}}
         # {
         #   destId:{
         #       path: [],
@@ -21,76 +21,89 @@ class Distance_Vector_Node(Node):
 
     def link_has_been_updated(self, neighbor, latency):
         # latency = -1 if delete a link
-        if neighbor not in self.neighbors:
-            self.neighbors[neighbor] = {
-                'seq': -1,
-                'latency': latency
-            }
+        if latency > -1:
+            if neighbor not in self.neighbors:
+                self.neighbors[neighbor] = {
+                    'seq': -1,
+                    'latency': latency
+                }
+            else:
+                self.neighbors[neighbor]['latency'] = latency
         else:
-            self.neighbors[neighbor]['latency'] = latency
-
-        if neighbor not in self.dv or self.dv[neighbor]['latency'] > latency or len(self.dv[neighbor]['path']) == 0:
-            new_path = {'path': [], 'latency': latency}
-            self.dv[neighbor] = new_path
-            message = {
-                "sender": self.id,
-                "seq": self.seq,
-                "dv": self.dv
-            }
-            self.seq += 1
-            self.send_to_neighbors(json.dumps(message))
+            del self.neighbors[neighbor]
+        self.updateDV()
 
     # Fill in this function
+
     def process_incoming_routing_message(self, m):
-        hasUpdated = False
         data = json.loads(m)
         # Received message should be the newest one
-        if self.neighbors[data["sender"]] < data["seq"]:
+        if data['sender'] in self.neighbors and self.neighbors[data['sender']]['seq'] < data['seq']:
             # update seq
-            self.neighbors[data["sender"]] = data['seq']
-            for dst, vec in data["dv"].items():
-                # if self in path, there is a loop, discard
-                if self.id in vec['path']:
-                    continue
-                # DV comes from the node which current dv passed, update it 
-                if data["sender"] == self.dv[dst]['path'][0]:
-                    self.updateDV(dst, [data["sender"]] + vec['path'], self.dv[data['sender']]['latency'] + vec['latency'])
-                    hasUpdated = True
-                # DV comes from different source, compare the latency, if lower, update
-                else:
-                    if dst not in self.dv or self.dv[dst]['latency'] > self.dv[data['sender']]['latency'] + vec['latency']:
-                        self.updateDV(dst, [data["sender"]] + vec['path'], self.dv[data['sender']]['latency'] + vec['latency'])
-                        hasUpdated = True
-            
-            # if DV has been updated, then send new dv to neighbors
-            if hasUpdated:
-                message = {
+            self.neighbors[data['sender']]['seq'] = data['seq']
+            self.neighbors[data['sender']]['dv'] = data['dv']
+            self.updateDV()
+
+    # Return a neighbor, -1 if no path to destination
+
+    def get_next_hop(self, destination):
+        if str(destination) not in self.dv:
+            return -1
+        else:
+            return int(self.dv[str(destination)]['path'][0])
+
+    def updateDV(self):
+        # neighbor:{
+        #   (neighborId):{
+        #       'latency': int,
+        #       'dv': object
+        #       'seq': int
+        #   }
+        # }
+
+        # dv: {
+        #   (dstId):{
+        #       'path': [],
+        #       'latency': int
+        #   }
+        # }
+
+        new_dv = {str(self.id): {'path': [], 'latency': 0}}
+                
+        for neighbor, detail in self.neighbors.items():
+            if 'dv' not in detail:
+                if str(neighbor) not in new_dv or new_dv[str(neighbor)]['latency'] > detail['latency']:
+                    new_dv[str(neighbor)] = {
+                        'path': [neighbor],
+                        'latency': detail['latency']
+                    }
+            else:
+                for dst, route in detail['dv'].items():
+                    if self.id not in route['path']:
+                        if dst not in new_dv or new_dv[dst]['latency'] > route['latency'] + detail['latency']:
+                            new_dv[str(dst)] = {
+                                'path': [neighbor] + route['path'],
+                                'latency': route['latency'] + detail['latency']
+                            }
+        isUpdated = False
+        if len(new_dv.keys())!=len(self.dv.keys()):
+            isUpdated = True
+
+        for key, value in new_dv.items():
+            if key not in self.dv:
+                isUpdated = True
+                break
+            else:
+                if value['latency'] != self.dv[key]['latency'] or value['path'] != self.dv[key]['path']:
+                    isUpdated = True
+                    break
+        
+        if isUpdated:
+            self.dv = new_dv
+            message = {
                     "sender": self.id,
                     "seq": self.seq,
                     "dv": self.dv
                 }
-                self.seq += 1
-                self.send_to_neighbors(json.dumps(message))
-
-    # Return a neighbor, -1 if no path to destination
-    def get_next_hop(self, destination):
-        if destination not in self.dv:
-            return -1
-        elif len(self.dv[destination]['path']) == 0:
-            return destination
-        else:
-            return self.dv[destination]['path'][0]
-
-    def updateDV(self, dst, path, latency):
-        if dst in self.neighbors and self.neighbors[dst]['latency'] <= latency:
-            new_path = {
-                'path': [],
-                'latency': self.neighbors[dst]['latency']
-            }
-        else:
-            new_path = {
-                'path': path,
-                'latency': latency
-            }
-
-        self.dv[dst] = new_path
+            self.seq += 1
+            self.send_to_neighbors(json.dumps(message))
